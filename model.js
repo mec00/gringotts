@@ -69,24 +69,45 @@ function lumpMap(lumps) {
   return map;
 }
 
-function mortgage(config, baseline = null) {
-  const overpay = baseline !== null;
+function investmentContributions(config) {
+  return {
+    monthly: config.matchContributions ? config.monthlyExtra : config.monthlyInvestment,
+    upfront: config.matchContributions ? config.upfrontExtra : config.upfrontInvestment,
+    lumps: lumpMap(config.matchContributions ? config.lumps : config.investmentLumps),
+  };
+}
+
+function monthlyGrowthRate(annualReturn) {
+  return Math.expm1(Math.log1p(annualReturn / 100) / 12);
+}
+
+function mortgage(config, baseline = null, strategy = 'monthly') {
+  const annual = strategy === 'annual';
+  const overpay = baseline !== null && !annual;
   const initialExtra = overpay ? Math.min(config.balance, config.upfrontExtra) : 0;
+  const investment = investmentContributions(config);
+  const growth = monthlyGrowthRate(config.annualReturn);
+  let investmentPot = annual ? investment.upfront : 0;
+  let retainedInvestments = annual ? config.startingBalance : 0;
   let balance = config.balance - initialExtra;
   let payment = 0;
   let totalInterest = 0;
   let totalExtra = initialExtra;
   let payoffMonth = balance === 0 ? 0 : config.termMonths;
-  const rows = [{ month: 0, balance, interest: 0, payment: 0, extra: initialExtra, totalInterest: 0 }];
+  const rows = [{
+    month: 0, balance, interest: 0, payment: 0, extra: initialExtra, totalInterest: 0,
+    ...(annual ? { portfolio: retainedInvestments + investmentPot } : {}),
+  }];
   const years = [];
   const lumps = lumpMap(config.lumps);
 
   for (let month = 1; month <= config.termMonths; month++) {
     const rate = month <= config.fixedMonths ? config.fixedRate : config.variableRate;
-    if (month === 1 || month === config.fixedMonths + 1) {
+    if (baseline) {
+      payment = baseline.rows[month].payment;
+    } else if (month === 1 || month === config.fixedMonths + 1) {
       payment = monthlyPayment(balance, rate, config.termMonths - month + 1);
     }
-    if (overpay) payment = baseline.rows[month].payment;
     if ((month - 1) % 12 === 0) {
       const opening = month === 1 ? config.balance : balance;
       years.push({
@@ -104,8 +125,15 @@ function mortgage(config, baseline = null) {
     const year = years.at(-1);
     const interest = balance * rate / 1200;
     const regular = Math.min(balance + interest, payment);
-    const requestedExtra = overpay ? config.monthlyExtra + (lumps.get(month) || 0) : 0;
+    let requestedExtra = overpay ? config.monthlyExtra + (lumps.get(month) || 0) : 0;
+    if (annual) {
+      retainedInvestments *= 1 + growth;
+      investmentPot = investmentPot * (1 + growth) + investment.monthly +
+        (investment.lumps.get(month) || 0) + Math.max(0, payment - regular);
+      if (month % 12 === 0) requestedExtra = investmentPot;
+    }
     const extra = Math.min(Math.max(0, balance + interest - regular), requestedExtra);
+    if (annual) investmentPot -= extra;
     balance = Math.max(0, balance + interest - regular - extra);
     if (balance < 1e-7) balance = 0;
     totalInterest += interest;
@@ -116,29 +144,31 @@ function mortgage(config, baseline = null) {
     year.extra += annualExtra;
     year.interest += interest;
     year.closing = balance;
+    if (annual) year.portfolio = retainedInvestments + investmentPot;
     if (allowanceActive) {
       year.active = true;
       year.countedExtra += annualExtra;
       year.excess = Math.max(0, year.countedExtra - year.allowance);
     }
     if (balance === 0 && rows.at(-1).balance > 0) payoffMonth = month;
-    rows.push({ month, balance, interest, payment: regular, extra, totalInterest });
+    rows.push({
+      month, balance, interest, payment: regular, extra, totalInterest,
+      ...(annual ? { portfolio: retainedInvestments + investmentPot } : {}),
+    });
   }
   return { rows, years, totalInterest, totalExtra, payoffMonth, initialExtra };
 }
 
 function projectInvestments(config, baseline, overpaid, annualReturn) {
   const horizon = config.fullHorizon ? config.termMonths : config.horizonMonths;
-  const growth = Math.expm1(Math.log1p(annualReturn / 100) / 12);
+  const growth = monthlyGrowthRate(annualReturn);
   const mortgageLumps = lumpMap(config.lumps);
-  const investmentLumps = lumpMap(config.matchContributions ? config.lumps : config.investmentLumps);
-  const monthlyInvestment = config.matchContributions ? config.monthlyExtra : config.monthlyInvestment;
-  const upfrontInvestment = config.matchContributions ? config.upfrontExtra : config.upfrontInvestment;
+  const investment = investmentContributions(config);
   let overpayPortfolio = config.startingBalance + config.upfrontExtra - overpaid.initialExtra;
-  let investPortfolio = config.startingBalance + upfrontInvestment;
-  let equalBudgets = Math.abs(upfrontInvestment - config.upfrontExtra) < 0.005;
+  let investPortfolio = config.startingBalance + investment.upfront;
+  let equalBudgets = Math.abs(investment.upfront - config.upfrontExtra) < 0.005;
   let overpayBudget = config.upfrontExtra;
-  let investBudget = upfrontInvestment;
+  let investBudget = investment.upfront;
   const rows = [{
     month: 0,
     overpayPortfolio,
@@ -148,7 +178,7 @@ function projectInvestments(config, baseline, overpaid, annualReturn) {
   }];
   for (let month = 1; month <= horizon; month++) {
     const extraBudget = config.monthlyExtra + (mortgageLumps.get(month) || 0);
-    const investmentContribution = monthlyInvestment + (investmentLumps.get(month) || 0);
+    const investmentContribution = investment.monthly + (investment.lumps.get(month) || 0);
     equalBudgets &&= Math.abs(extraBudget - investmentContribution) < 0.005;
     overpayBudget += extraBudget;
     investBudget += investmentContribution;
@@ -178,6 +208,12 @@ export function calculate(config) {
   const baseline = mortgage(config);
   const overpaid = mortgage(config, baseline);
   const comparison = projectInvestments(config, baseline, overpaid, config.annualReturn);
+  const annual = mortgage(config, baseline, 'annual');
+  annual.interestSaved = Math.max(0, baseline.totalInterest - annual.totalInterest);
+  annual.monthsSaved = baseline.payoffMonth - annual.payoffMonth;
+  annual.breaches = annual.years.filter(year => year.excess > 0.005);
+  annual.atHorizon = annual.rows[comparison.horizon];
+  annual.net = annual.atHorizon.portfolio - annual.atHorizon.balance;
   const breaches = overpaid.years.filter(year => year.excess > 0.005);
   let breakEven = null;
   if (comparison.equalBudgets && comparison.overpayBudget > 0) {
@@ -194,7 +230,7 @@ export function calculate(config) {
     }
   }
   return {
-    baseline, overpaid, comparison, breaches, breakEven,
+    baseline, overpaid, annual, comparison, breaches, breakEven,
     interestSaved: Math.max(0, baseline.totalInterest - overpaid.totalInterest),
     monthsSaved: baseline.payoffMonth - overpaid.payoffMonth,
   };

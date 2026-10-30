@@ -105,17 +105,18 @@ h2 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: -.3px; }
 .chart-heading h2 { font-size: 14px; }
 .chart-heading p { font-size: 10px; color: var(--muted); margin: 5px 0 0; }
 .chart-unit { font-size: 8px; letter-spacing: 1px; border: 1px solid var(--border); border-radius: 4px; color: #86907d; padding: 4px 7px; }
-.chart-legend { display: flex; gap: 22px; margin: 24px 0 5px; font-size: 10px; color: #778071; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 24px 0 5px; font-size: 10px; color: #778071; }
 .legend-item { display: flex; align-items: center; gap: 7px; }
 .legend-line { width: 18px; border-top: 2px solid #36714e; }
 .legend-line.secondary { border-top: 2px dashed #a3ad9c; }
+.legend-line.annual { border-color: #517f99; }
 .chart { width: 100%; margin-top: 4px; }
 .chart svg { width: 100%; height: auto; overflow: visible; }
 .axis-label { fill: #87917f; font: 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .marker-label { fill: #809371; font: 8px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .chart-inspect { display: grid; grid-template-columns: auto 1fr; gap: 6px 15px; align-items: center; margin: 2px 0 15px; font-size: 10px; color: var(--muted); }
 .chart-inspect input { accent-color: var(--green); width: 100%; height: 16px; cursor: pointer; }
-.chart-values { grid-column: 1 / -1; display: flex; gap: 18px; font-variant-numeric: tabular-nums; }
+.chart-values { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px 18px; font-variant-numeric: tabular-nums; }
 .chart-values strong { color: var(--green); font-weight: 600; }
 .chart-footer { background: #fafbf7; border-top: 1px solid #e9eee2; padding: 14px 24px; margin: 0 -24px; font-size: 10px; color: #718168; display: flex; align-items: center; gap: 8px; }
 .chart-footer strong { color: #49663a; font-weight: 600; }
@@ -158,6 +159,9 @@ tr:last-child td { border-bottom: 0; }
 .comparison-detail tr:last-child td { padding-left: 9px; padding-right: 9px; }
 .comparison-detail .break-even { border-top: 1px solid var(--border); padding-top: 13px; margin-bottom: 0; color: #587349; }
 .panel-description { margin: -8px 0 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.annual-explainer { padding: 14px; margin-bottom: 20px; background: #edf3f6; border: 1px solid #d5e1e8; border-radius: 7px; color: #486679; font-size: 11px; line-height: 1.7; }
+.annual-explainer p { margin: 8px 0 0; }
+.annual-explainer strong { font-weight: 650; }
 .checkbox-label { display: flex; align-items: flex-start; gap: 9px; font-size: 11px; color: #526a45; margin: 18px 0; cursor: pointer; line-height: 1.7; }
 .checkbox-label input { accent-color: var(--green); width: 15px; height: 15px; margin: 2px 0 0; flex-shrink: 0; }
 .linked-contributions { background: #f4f7ee; border-radius: 7px; padding: 16px; }
@@ -228,6 +232,8 @@ footer span:last-child { margin-left: auto; }
   .chart-heading h2 { font-size: 16px; }
   .chart-heading p, .chart-footer { font-size: 11px; }
   .results-heading h2 { font-size: 14px; }
+  .workspace-bar { flex-wrap: wrap; }
+  .tabs { flex: 1; }
 }
 @media (max-width: 560px) {
   .site-header { padding: 0 20px; gap: 10px; height: 68px; }
@@ -241,8 +247,8 @@ footer span:last-child { margin-left: auto; }
   h1 { font-size: 36px; letter-spacing: -1.5px; max-width: 330px; }
   .intro-copy { font-size: 12px; line-height: 1.8; }
   .workspace-bar { align-items: stretch; flex-wrap: wrap; gap: 12px; padding-bottom: 18px; }
-  .tabs { flex: 1 0 100%; }
-  .tab { flex: 1; padding: 10px 8px; font-size: 11px; }
+  .tabs { flex: 1 0 100%; min-width: 0; }
+  .tab { flex: 1; min-width: 0; flex-direction: column; gap: 5px; padding: 9px 5px; font-size: 10px; }
   .workspace-actions { width: 100%; justify-content: space-between; }
   .workspace-actions select { padding: 2px 0; }
   #mortgage-inputs, #investment-inputs { grid-template-columns: 1fr; gap: 0; }

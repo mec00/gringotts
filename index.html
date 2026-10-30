@@ -54,6 +54,10 @@
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 16V4m0 12h14M6 12l4-4 3 2 4-6m-4 0h4v4"/></svg>
               Overpay vs invest
             </button>
+            <button type="button" class="tab" id="annual-tab" role="tab" aria-selected="false" aria-controls="workspace" tabindex="-1" data-tab="annual">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12v12H4ZM7 3v4m6-4v4M4 9h12m-9 4 2 2 4-4"/></svg>
+              Invest, then overpay
+            </button>
           </div>
           <div class="workspace-actions">
             <label class="sr-only" for="currency">Display currency</label>
@@ -136,8 +140,14 @@
 
             <div id="investment-inputs" hidden>
               <section class="panel input-panel">
-                <div class="section-heading"><span class="step-number">01</span><h2>Your investment</h2></div>
-                <p class="panel-description">What could that extra money do elsewhere?</p>
+                <div class="section-heading"><span class="step-number">01</span><h2 id="investment-heading">Your investment</h2></div>
+                <p class="panel-description" id="investment-description">What could that extra money do elsewhere?</p>
+                <div id="annual-explainer" class="annual-explainer" hidden>
+                  <strong>Invest monthly. Overpay annually.</strong>
+                  <p>New contributions, today's lump sum and future lump sums grow in a separate pot. At the end of months 12, 24, 36 and so on, the pot is withdrawn into the mortgage, including gains or losses.</p>
+                  <p id="annual-first-withdrawal"></p>
+                  <p>Withdrawals cannot exceed the remaining debt. Leftover funds stay invested. No early withdrawal is made for a partial year.</p>
+                </div>
                 <div class="field">
                   <label for="annualReturn">Expected annual growth</label>
                   <div class="input-wrap"><input id="annualReturn" name="annualReturn" type="number" min="-99" max="50" step="0.1" inputmode="decimal" value="6"><span class="suffix">%</span></div>
@@ -146,7 +156,7 @@
                 <div class="field">
                   <label for="startingBalance">Starting investment balance</label>
                   <div class="input-wrap"><span data-currency>£</span><input id="startingBalance" name="startingBalance" type="number" min="0" max="1000000000" step="0.01" inputmode="decimal" value="0"></div>
-                  <p class="field-help">Existing investments stay invested in both strategies.</p>
+                  <p class="field-help">Existing investments stay invested in every strategy. They are not included in the annual withdrawal pot.</p>
                 </div>
                 <label class="checkbox-label"><input id="fullHorizon" name="fullHorizon" type="checkbox" checked><span>Compare over the remaining mortgage term</span></label>
                 <div class="field" id="horizon-field" hidden>
@@ -217,7 +227,7 @@
               <div class="table-scroll">
                 <table>
                   <caption class="sr-only">Strategy comparison at the selected horizon</caption>
-                  <thead><tr><th scope="col">At your horizon</th><th scope="col">Overpay first</th><th scope="col">Invest instead</th></tr></thead>
+                  <thead id="comparison-head"><tr><th scope="col">At your horizon</th><th scope="col">Overpay first</th><th scope="col">Invest instead</th></tr></thead>
                   <tbody id="comparison-table"></tbody>
                 </table>
               </div>
@@ -228,15 +238,15 @@
               <details id="schedule">
                 <summary><span><span class="table-icon" aria-hidden="true">▤</span> The year-by-year breakdown</span><span class="details-hint">View schedule</span></summary>
                 <div class="schedule-content">
-                  <div class="schedule-toolbar"><p>Mortgage plan · amounts at each model year end</p><button class="text-button" type="button" id="download">Download CSV <span aria-hidden="true">↓</span></button></div>
+                  <div class="schedule-toolbar"><p id="schedule-title">Mortgage plan · amounts at each model year end</p><button class="text-button" type="button" id="download">Download CSV <span aria-hidden="true">↓</span></button></div>
                   <div class="table-scroll">
                     <table>
                       <caption class="sr-only">Annual mortgage amortization and overpayment allowances</caption>
-                      <thead><tr><th scope="col">Year</th><th scope="col">No overpayments</th><th scope="col">With overpayments</th><th scope="col">Interest paid</th><th scope="col">Overpaid</th><th scope="col">Allowance used</th></tr></thead>
+                      <thead id="schedule-head"><tr><th scope="col">Year</th><th scope="col">No overpayments</th><th scope="col">With overpayments</th><th scope="col">Interest paid</th><th scope="col">Overpaid</th><th scope="col">Allowance used</th></tr></thead>
                       <tbody id="schedule-body"></tbody>
                     </table>
                   </div>
-                  <p class="field-help">Interest paid and allowances refer to the overpayment plan. Allowances cover only eligible months; partial model years are not prorated.</p>
+                  <p class="field-help" id="schedule-note">Interest paid and allowances refer to the overpayment plan. Allowances cover only eligible months; partial model years are not prorated.</p>
                 </div>
               </details>
             </section>
@@ -253,6 +263,8 @@
             <p><strong>Mortgage payments.</strong> A repayment mortgage with monthly interest at the annual rate divided by 12. The variable rate stays constant after the fixed period. At that change, we recalculate the baseline payment over the remaining term and use it in both plans, so overpayments reduce the term, not the monthly payment. A lender may instead reduce your payment.</p>
             <p><strong>Timing and allowances.</strong> Today's lump sum is paid before any interest. Monthly and future lump sums are paid at month end, after interest and the regular payment. Year 1's allowance uses the balance before today's lump sum. Limits trigger alerts; we do not cap payments or calculate early repayment charges. The fixed-period allowance is not prorated on expiry.</p>
             <p><strong>Investment comparison.</strong> Growth compounds monthly using (1 + annual return)^(1/12) − 1. Contributions arrive at month end. Both plans retain any starting investment balance. In the overpayment plan, surplus cash and payments freed by early payoff are invested at the same return. Contributions continue to your chosen horizon, including scheduled lump sums after payoff.</p>
+            <p><strong>Annual withdrawals.</strong> The third strategy uses the same contribution amounts, growth rate and horizon as the investment strategy. New contributions and their growth are withdrawn every 12 months from today, after that month's interest, regular mortgage payment and investment contribution. Only the amount needed to clear the remaining debt is withdrawn. Existing starting investments stay invested separately; after payoff, new contributions and freed mortgage payments stay invested too.</p>
+            <p><strong>Annual strategy limits and timing.</strong> Actual withdrawals, including any investment gains, count against the mortgage allowance in the year and rate period when they are paid, not when money was invested. No additional withdrawal is made at a shorter comparison horizon or partial final year. Mortgage savings and payoff timing cover the full mortgage term; net-position comparisons use the selected horizon. Withdrawal taxes, fees and market volatility are not modelled.</p>
             <p><strong>What isn't included.</strong> No separate taxes, investment fees, inflation, lender fees, daily interest, or repayment penalties are calculated. Enter an investment return net of tax and fees. Currency changes labels only, not exchange rates. Calculations use full precision, with displayed figures rounded; your lender's results will differ.</p>
           </div>
         </details>

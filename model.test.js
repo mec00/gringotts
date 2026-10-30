@@ -101,6 +101,7 @@ test('investment matches mortgage at its effective annual rate', () => {
     lumps: [{ month: 48, amount: 7000 }],
   }));
   close(result.comparison.difference, 0);
+  close(result.annual.net, result.comparison.investNet);
   close(result.breakEven, effective, 0.00001);
 });
 
@@ -140,4 +141,106 @@ test('invalid inputs are rejected rather than silently coerced', () => {
     { limitBasis: 'unknown' }, { fullHorizon: false, horizonMonths: 301 },
     { lumps: [{ month: 0, amount: 200 }] }, { lumps: [{ month: 1, amount: Infinity }] },
   ]) assert.throws(() => calculate(config(changes)), RangeError);
+});
+
+test('annual strategy invests contributions and lump sums, then withdraws only at year end', () => {
+  const { annual } = calculate(config({
+    balance: 36000, termMonths: 36, fixedMonths: 0, variableRate: 0,
+    upfrontExtra: 1000, monthlyExtra: 200, annualReturn: 0,
+    lumps: [{ month: 6, amount: 600 }, { month: 12, amount: 1200 }, { month: 13, amount: 300 }],
+  }));
+  close(annual.rows[0].balance, 36000);
+  close(annual.rows[0].portfolio, 1000);
+  assert.ok(annual.rows.slice(0, 12).every(row => row.extra === 0));
+  close(annual.rows[12].extra, 5200);
+  close(annual.rows[12].balance, 18800);
+  close(annual.rows[12].portfolio, 0);
+  close(annual.rows[13].portfolio, 500);
+  close(annual.rows[24].extra, 2700);
+  close(annual.years[1].opening, annual.rows[12].balance);
+});
+
+test('annual withdrawals include compounded gains or losses but exclude existing investments', () => {
+  for (const annualReturn of [12, -12, 0]) {
+    const { annual } = calculate(config({
+      balance: 100000, termMonths: 120, fixedMonths: 0, variableRate: 0,
+      startingBalance: 5000, upfrontExtra: 1000, monthlyExtra: 100, annualReturn,
+      lumps: [{ month: 6, amount: 200 }, { month: 12, amount: 300 }],
+    }));
+    const growth = (1 + annualReturn / 100) ** (1 / 12) - 1;
+    const monthlyPot = growth === 0 ? 1200 : 100 * (((1 + growth) ** 12 - 1) / growth);
+    const expected = 1000 * (1 + annualReturn / 100) + monthlyPot + 200 * (1 + growth) ** 6 + 300;
+    close(annual.rows[12].extra, expected);
+    close(annual.rows[12].portfolio, 5000 * (1 + annualReturn / 100));
+    close(annual.rows[24].extra, monthlyPot);
+  }
+});
+
+test('annual allowances apply on withdrawal, including growth, and respect fixed-period expiry', () => {
+  const settings = {
+    balance: 100000, termMonths: 120, fixedMonths: 12,
+    upfrontExtra: 10000, monthlyExtra: 0, annualReturn: 10, limitPercent: 10,
+  };
+  const { annual } = calculate(config(settings));
+  close(annual.years[0].countedExtra, 11000);
+  close(annual.breaches[0].excess, 1000);
+  close(annual.years[1].allowance, annual.rows[12].balance * 0.1);
+  assert.equal(annual.years[1].active, false);
+  const expired = calculate(config({ ...settings, fixedMonths: 11 })).annual;
+  assert.equal(expired.breaches.length, 0);
+  close(expired.years[0].extra, 11000);
+  close(expired.years[0].countedExtra, 0);
+});
+
+test('annual payoff caps withdrawals and retains excess funds and freed mortgage payments', () => {
+  const { annual, comparison } = calculate(config({
+    balance: 24000, termMonths: 24, fixedMonths: 0, variableRate: 0,
+    upfrontExtra: 20000, monthlyExtra: 0, annualReturn: 0, startingBalance: 1000,
+  }));
+  assert.equal(annual.payoffMonth, 12);
+  close(annual.rows[12].extra, 12000);
+  close(annual.rows[12].portfolio, 9000);
+  close(annual.rows[13].portfolio, 10000);
+  close(annual.rows[24].extra, 0);
+  close(annual.atHorizon.portfolio, 21000);
+  close(annual.net, comparison.investNet);
+  close(annual.net, comparison.overpayNet);
+});
+
+test('short horizons and partial final years do not trigger early annual withdrawals', () => {
+  const settings = {
+    balance: 18000, termMonths: 18, fixedMonths: 0, variableRate: 0,
+    upfrontExtra: 500, monthlyExtra: 100, annualReturn: 0,
+  };
+  const first = calculate(config({ ...settings, fullHorizon: false, horizonMonths: 6 }));
+  close(first.annual.atHorizon.portfolio, 1100);
+  close(first.annual.atHorizon.balance, first.baseline.rows[6].balance);
+  close(first.annual.net, first.comparison.investNet);
+  const second = calculate(config({ ...settings, fullHorizon: false, horizonMonths: 14 }));
+  close(second.annual.rows[12].extra, 1700);
+  close(second.annual.atHorizon.portfolio, 200);
+  close(second.annual.atHorizon.extra, 0);
+  close(second.annual.net, second.annual.atHorizon.portfolio - second.annual.atHorizon.balance);
+  close(second.annual.rows[18].extra, 0);
+});
+
+test('annual strategy uses custom investment amounts and shared rate-reset payments', () => {
+  const result = calculate(config({
+    matchContributions: false, upfrontInvestment: 2000, monthlyInvestment: 50,
+    investmentLumps: [{ month: 12, amount: 400 }], annualReturn: 0,
+    fixedMonths: 12, fixedRate: 2, variableRate: 7,
+  }));
+  close(result.annual.rows[12].extra, 3000);
+  close(result.annual.rows[13].payment, result.baseline.rows[13].payment);
+  assert.equal(result.comparison.equalBudgets, false);
+  assert.ok(result.annual.interestSaved > 0);
+  assert.ok(result.annual.monthsSaved > 0);
+});
+
+test('annual strategy preserves the baseline with no new contributions', () => {
+  const result = calculate(config({ monthlyExtra: 0, upfrontExtra: 0, startingBalance: 5000 }));
+  close(result.annual.totalExtra, 0);
+  close(result.annual.interestSaved, 0);
+  assert.equal(result.annual.monthsSaved, 0);
+  close(result.annual.net, result.comparison.investNet);
 });

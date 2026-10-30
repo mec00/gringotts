@@ -83,18 +83,25 @@ function validateForm() {
   }
 }
 
+function selectedMortgagePlan() {
+  return activeTab === 'annual' ? result.annual : result.overpaid;
+}
+
 function renderStats(config) {
-  const { baseline, overpaid, comparison, interestSaved, monthsSaved } = result;
+  const { baseline, comparison } = result;
+  const plan = selectedMortgagePlan();
+  const interestSaved = baseline.totalInterest - plan.totalInterest;
+  const monthsSaved = baseline.payoffMonth - plan.payoffMonth;
   let comparisonNote = 'Different budgets · no fair winner';
   if (comparison.equalBudgets) {
     comparisonNote = Math.abs(comparison.difference) < 1 ?
       'The strategies are effectively equal' :
       `In favour of ${comparison.difference > 0 ? 'investing' : 'overpaying'}`;
   }
-  const stats = activeTab === 'mortgage' ? [
-    { label: 'Interest saved', value: money(interestSaved), note: `vs ${money(baseline.totalInterest)} without overpaying`, icon: '↗' },
+  const stats = activeTab !== 'investment' ? [
+    { label: 'Interest saved', value: money(interestSaved), note: `Full mortgage · vs ${money(baseline.totalInterest)} interest`, icon: '↗' },
     { label: 'Time saved', value: shortDuration(monthsSaved), note: 'Closer to a mortgage-free future', icon: '◷' },
-    { label: 'Mortgage-free in', value: overpaid.payoffMonth === 0 ? 'Today' : shortDuration(overpaid.payoffMonth), note: `Instead of ${duration(baseline.payoffMonth)}`, icon: '⌂' },
+    { label: 'Mortgage-free in', value: plan.payoffMonth === 0 ? 'Today' : shortDuration(plan.payoffMonth), note: `Instead of ${duration(baseline.payoffMonth)}`, icon: '⌂' },
   ] : [
     { label: 'Projected difference', value: money(Math.abs(comparison.difference)), note: comparisonNote, icon: '↗' },
     { label: 'Overpay-first net position', value: money(comparison.overpayNet), note: 'Investments minus mortgage debt', icon: '⌂' },
@@ -106,7 +113,12 @@ function renderStats(config) {
       <strong class="stat-value">${stat.value}</strong>
       <span class="stat-note">${stat.note}</span>
     </article>`).join('');
-  text('results-title', activeTab === 'mortgage' ? 'Your extra payments, in perspective' : 'Two strategies. The same starting point.');
+  const titles = {
+    mortgage: 'Your extra payments, in perspective',
+    investment: 'Two strategies. The same starting point.',
+    annual: 'Annual withdrawals, lifetime mortgage savings',
+  };
+  text('results-title', titles[activeTab]);
   text('regular-payment', `${money(baseline.rows[1].payment, 2)} / mo`);
   text('payment-change', config.fixedMonths > 0 && config.fixedMonths < config.termMonths ?
     `${money(baseline.rows[config.fixedMonths + 1].payment, 2)} / mo from month ${config.fixedMonths + 1} at ${config.variableRate}%.` :
@@ -115,19 +127,30 @@ function renderStats(config) {
   text('linked-monthly', money(config.monthlyExtra));
   text('linked-upfront', money(config.upfrontExtra));
   text('linked-lumps', `${config.lumps.length} · ${money(config.lumps.reduce((sum, lump) => sum + lump.amount, 0))}`);
+  text('annual-first-withdrawal', config.termMonths >= 12 ?
+    `First projected mortgage withdrawal: ${money(result.annual.rows[12].extra, 2)} at month 12.` :
+    'The mortgage term ends before month 12, so no annual withdrawal is made.');
 }
 
 function chartSeries() {
   if (activeTab === 'mortgage') {
     return [
-      { name: 'With overpayments', data: result.overpaid.rows.map(row => row.balance), color: '#36714e' },
-      { name: 'Without overpayments', data: result.baseline.rows.map(row => row.balance), color: '#a3ad9c' },
+      { name: 'With overpayments', data: result.overpaid.rows.map(row => row.balance), color: '#36714e', variant: '' },
+      { name: 'Without overpayments', data: result.baseline.rows.map(row => row.balance), color: '#a3ad9c', variant: 'secondary' },
     ];
   }
-  return [
-    { name: 'Overpay first', data: result.comparison.rows.map(row => row.overpayNet), color: '#36714e' },
-    { name: 'Invest instead', data: result.comparison.rows.map(row => row.investNet), color: '#a3ad9c' },
+  const series = [
+    { name: 'Overpay first', data: result.comparison.rows.map(row => row.overpayNet), color: '#36714e', variant: '' },
+    { name: 'Invest instead', data: result.comparison.rows.map(row => row.investNet), color: '#a3ad9c', variant: 'secondary' },
   ];
+  if (activeTab === 'annual') {
+    series.unshift({
+      name: 'Invest, then overpay',
+      data: result.annual.rows.slice(0, result.comparison.horizon + 1).map(row => row.portfolio - row.balance),
+      color: '#517f99', variant: 'annual',
+    });
+  }
+  return series;
 }
 
 function renderChart(config) {
@@ -164,13 +187,13 @@ function renderChart(config) {
   $('chart').innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="plot-title plot-desc">
     <title id="plot-title">${activeTab === 'mortgage' ? 'Mortgage balance over time' : 'Net financial position over time'}</title>
     <desc id="plot-desc">${series.map(item => `${item.name}: ${money(item.data[0])} initially, ${money(item.data.at(-1))} at month ${months}.`).join(' ')} Use the month slider for individual values or the tables below.</desc>
-    <defs><linearGradient id="chart-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#a8c789" stop-opacity=".23"/><stop offset="100%" stop-color="#dfeccc" stop-opacity=".04"/></linearGradient></defs>
+    <defs><linearGradient id="chart-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="${series[0].color}" stop-opacity=".15"/><stop offset="100%" stop-color="${series[0].color}" stop-opacity=".02"/></linearGradient></defs>
     ${grid}${fixedMarker}<path d="${area}" fill="url(#chart-fill)"/>
-    ${[...series].reverse().map((item, index) => `<path d="${line(item.data)}" fill="none" stroke="${item.color}" stroke-width="${index === 0 ? 2 : 2.8}" ${index === 0 ? 'stroke-dasharray="5 5"' : ''} stroke-linecap="round" stroke-linejoin="round"/>`).join('')}
+    ${[...series].reverse().map(item => `<path d="${line(item.data)}" fill="none" stroke="${item.color}" stroke-width="${item === series[0] ? 2.8 : 2}" ${item.variant === 'secondary' ? 'stroke-dasharray="5 5"' : ''} stroke-linecap="round" stroke-linejoin="round"/>`).join('')}
     ${axis}
     <line id="chart-cursor" x1="${left}" x2="${left}" y1="${top}" y2="${height - bottom}" stroke="#9eaf93" stroke-width="1"/>
   </svg>`;
-  $('chart-legend').innerHTML = series.map((item, i) => `<span class="legend-item"><span class="legend-line ${i ? 'secondary' : ''}"></span>${item.name}</span>`).join('');
+  $('chart-legend').innerHTML = series.map(item => `<span class="legend-item"><span class="legend-line ${item.variant}"></span>${item.name}</span>`).join('');
   text('chart-title', activeTab === 'mortgage' ? 'The path to mortgage-free' : 'Where your money could take you');
   text('chart-description', activeTab === 'mortgage' ? 'Small overpayments. A shorter journey.' : 'Net position = investments minus outstanding mortgage.');
   text('chart-unit', activeTab === 'mortgage' ? 'BALANCE' : 'NET POSITION');
@@ -178,7 +201,8 @@ function renderChart(config) {
   $('chart-month').value = Math.min(Number($('chart-month').value), months);
   $('chart-footer').innerHTML = activeTab === 'mortgage' ?
     `<span aria-hidden="true">⌁</span><span>${result.monthsSaved > 0 ? `Your plan brings mortgage freedom <strong>${duration(result.monthsSaved)} closer.</strong>` : 'Add an overpayment to explore a shorter mortgage term.'}</span>` :
-    `<span aria-hidden="true">⌁</span><span>Same horizon: <strong>${duration(result.comparison.horizon)}</strong>. ${result.comparison.equalBudgets ? 'Matched cash contributions in both strategies.' : 'Different cash contributions — compare with care.'}</span>`;
+    `<span aria-hidden="true">⌁</span><span>Same horizon: <strong>${duration(result.comparison.horizon)}</strong>. ${result.comparison.equalBudgets ? 'Matched cash contributions across the displayed strategies.' : 'Different cash contributions — compare with care.'}</span>`;
+  if (activeTab === 'annual') text('chart-title', 'Three strategies, one horizon');
   renderChartValues();
 }
 
@@ -195,8 +219,9 @@ function renderChartValues() {
 }
 
 function renderAllowance(config) {
-  const { breaches, overpaid } = result;
-  const firstYear = overpaid.years[0];
+  const plan = selectedMortgagePlan();
+  const breaches = activeTab === 'annual' ? result.annual.breaches : result.breaches;
+  const firstYear = plan.years[0];
   const status = $('allowance-status');
   status.classList.toggle('warning', breaches.length > 0);
   let title;
@@ -211,7 +236,33 @@ function renderAllowance(config) {
     title = 'Your plan stays within the annual allowance';
     message = `Year 1: ${money(firstYear.countedExtra)} of ${money(firstYear.allowance)} used (${config.limitPercent}%). ${config.limitPeriod === 'fixed' ? 'Checks cover the fixed-rate period only.' : 'All mortgage years checked.'} Model years start today.`;
   }
+  if (activeTab === 'annual') {
+    message += ' Annual-withdrawal plan only: actual withdrawals, including gains, count when paid. Edit limits in Mortgage plan.';
+  }
   status.innerHTML = `<span class="status-icon" aria-hidden="true">${breaches.length ? '!' : '✓'}</span><div><h3>${title}</h3><p>${message}</p></div>`;
+}
+
+function annualDecision(config) {
+  const { annual, comparison } = result;
+  const ranked = [
+    { name: 'Overpay first', net: comparison.overpayNet },
+    { name: 'Invest instead', net: comparison.investNet },
+    { name: 'Invest, then overpay', net: annual.net },
+  ].sort((a, b) => b.net - a.net);
+  const gap = ranked[0].net - ranked[1].net;
+  let title = `${ranked[0].name} projects ahead`;
+  if (gap < 1) title = 'The leading strategies are effectively tied';
+  let description = `At ${config.annualReturn}% annual growth over ${duration(comparison.horizon)}, ${ranked[0].name.toLowerCase()} finishes at ${money(ranked[0].net)} net, ${money(gap)} ahead of the next strategy.`;
+  if (gap < 1) description = `At ${config.annualReturn}% annual growth over ${duration(comparison.horizon)}, ${ranked[0].name.toLowerCase()} and ${ranked[1].name.toLowerCase()} finish within ${money(1)} of each other.`;
+  if (!comparison.equalBudgets) {
+    title = 'Different budgets, no like-for-like winner';
+    description = 'The annual-withdrawal plan uses your investment contributions. These differ from the direct-overpayment budget or timing. Match contributions to rank all three strategies fairly.';
+  }
+  description += ` The annual-withdrawal plan finishes at ${money(annual.net)} net. Returns are uncertain; annual withdrawals can lock in investment losses.`;
+  if (annual.breaches.length || result.breaches.length) {
+    description += ' Treat the comparison as provisional: at least one mortgage strategy exceeds its allowance, and repayment charges are not included.';
+  }
+  return { title, description };
 }
 
 function renderDecision(config) {
@@ -219,7 +270,11 @@ function renderDecision(config) {
   const difference = Math.abs(comparison.difference);
   let title;
   let description;
-  if (!comparison.equalBudgets) {
+  if (activeTab === 'annual') {
+    const decision = annualDecision(config);
+    title = decision.title;
+    description = decision.description;
+  } else if (!comparison.equalBudgets) {
     title = 'Different budgets, different possibilities';
     description = `These plans use different amounts or contribution timing, so there is no like-for-like winner. Match your contributions to compare the strategies fairly.`;
   } else if (difference < 1) {
@@ -230,11 +285,13 @@ function renderDecision(config) {
     title = `${winner} could put you ${money(difference)} ahead`;
     description = `At ${config.annualReturn}% annual investment growth, ${comparison.difference > 0 ? 'investing the extra money' : 'overpaying and investing freed-up payments'} gives a higher projected net position after ${duration(comparison.horizon)}. This assumes steady returns, which are not guaranteed.`;
   }
-  if (breaches.length) description += ' Treat this result as provisional: overpayment charges could change the outcome.';
+  if (activeTab !== 'annual' && breaches.length) {
+    description += ' Treat this result as provisional: overpayment charges could change the outcome.';
+  }
   text('decision-title', title);
   text('decision-text', description);
-  $('compare-button').hidden = activeTab === 'investment';
-  $('comparison-detail').hidden = activeTab !== 'investment';
+  $('compare-button').hidden = activeTab !== 'mortgage';
+  $('comparison-detail').hidden = activeTab === 'mortgage';
   const horizon = comparison.horizon;
   const rows = [
     ['Extra cash allocated', comparison.overpayBudget, comparison.investBudget],
@@ -242,7 +299,18 @@ function renderDecision(config) {
     ['Mortgage remaining', result.overpaid.rows[horizon].balance, result.baseline.rows[horizon].balance],
     ['Net position', comparison.overpayNet, comparison.investNet],
   ];
-  $('comparison-table').innerHTML = rows.map(([label, a, b]) => `<tr><th scope="row">${label}</th><td>${money(a)}</td><td>${money(b)}</td></tr>`).join('');
+  const headings = ['At your horizon', 'Overpay first', 'Invest instead'];
+  if (activeTab === 'annual') {
+    headings.push('Invest, then overpay');
+    const annualValues = [
+      comparison.investBudget, result.annual.atHorizon.portfolio,
+      result.annual.atHorizon.balance, result.annual.net,
+    ];
+    rows.forEach((row, i) => row.push(annualValues[i]));
+  }
+  $('comparison-head').innerHTML = `<tr>${headings.map(heading => `<th scope="col">${heading}</th>`).join('')}</tr>`;
+  $('comparison-table').innerHTML = rows.map(([label, ...values]) =>
+    `<tr><th scope="row">${label}</th>${values.map(value => `<td>${money(value)}</td>`).join('')}</tr>`).join('');
   let breakEvenText = 'No distinct break-even return in the modelled −99% to 50% range. With no extra cash, the strategies are the same.';
   if (!comparison.equalBudgets) {
     breakEvenText = 'A break-even return requires matched contributions and timing.';
@@ -250,16 +318,27 @@ function renderDecision(config) {
     breakEvenText = `Break-even investment return: approximately ${breakEven.toFixed(2)}% a year after tax and fees. Above this, investing projects ahead; below it, overpaying projects ahead. Assumes matched budgets and excludes repayment charges.`;
   }
   text('break-even', breakEvenText);
+  if (activeTab === 'annual') {
+    text('break-even', 'Annual withdrawals use the same investment budget as Invest instead. Mortgage savings above cover the full mortgage, while this table uses your chosen horizon. Cash left after payoff stays invested; no withdrawal taxes or fees are included.');
+  }
 }
 
 function renderSchedule() {
-  $('schedule-body').innerHTML = result.overpaid.years.map((year, i) => `<tr>
+  const annual = activeTab === 'annual';
+  const plan = selectedMortgagePlan();
+  const headings = ['Year', 'No overpayments', annual ? 'Annual-plan debt' : 'With overpayments', 'Interest paid', annual ? 'Withdrawn to mortgage' : 'Overpaid', 'Allowance used'];
+  if (annual) headings.push('Investments remaining');
+  $('schedule-head').innerHTML = `<tr>${headings.map(heading => `<th scope="col">${heading}</th>`).join('')}</tr>`;
+  text('schedule-title', `${annual ? 'Annual-withdrawal plan' : 'Mortgage plan'} · full term, amounts at each model year end`);
+  text('schedule-note', `${annual ? 'Withdrawals, interest, investments and allowances refer to the annual-withdrawal plan. Investments include retained starting investments and any unwithdrawn pot.' : 'Interest paid and allowances refer to the overpayment plan.'} Allowances cover only eligible months; partial model years are not prorated.`);
+  $('schedule-body').innerHTML = plan.years.map((year, i) => `<tr>
     <th scope="row">${year.year}</th>
     <td>${money(result.baseline.years[i].closing)}</td>
     <td>${money(year.closing)}</td>
     <td>${money(year.interest)}</td>
     <td>${money(year.extra)}</td>
     <td class="${year.excess > 0.005 ? 'exceeded' : ''}">${year.active ? `${money(year.countedExtra)} / ${money(year.allowance)}${year.excess > 0.005 ? ' ⚠' : ''}` : 'Not applicable'}</td>
+    ${annual ? `<td>${money(year.portfolio)}</td>` : ''}
   </tr>`).join('');
 }
 
@@ -271,7 +350,7 @@ function render() {
     result = calculate(currentConfig);
   } catch (error) {
     if (!(error instanceof RangeError || error instanceof TypeError)) throw error;
-    text('form-error', `Results paused — ${error.message} Check the inputs in either calculator tab.`);
+    text('form-error', `Results paused — ${error.message} Check the inputs across the calculator tabs.`);
     $('form-error').hidden = false;
     $('results').classList.add('stale');
     $('results').inert = true;
@@ -304,7 +383,12 @@ function switchTab(tab, focus = false) {
   }
   $('workspace').setAttribute('aria-labelledby', `${tab}-tab`);
   $('mortgage-inputs').hidden = tab !== 'mortgage';
-  $('investment-inputs').hidden = tab !== 'investment';
+  $('investment-inputs').hidden = tab === 'mortgage';
+  $('annual-explainer').hidden = tab !== 'annual';
+  text('investment-heading', tab === 'annual' ? 'Invest, then overpay' : 'Your investment');
+  text('investment-description', tab === 'annual' ?
+    'Shared investment settings. A different way to use the pot.' :
+    'What could that extra money do elsewhere?');
   render();
 }
 
@@ -331,21 +415,24 @@ function addLump(kind) {
 
 function downloadSchedule() {
   if (!result || $('download').disabled) return;
+  const annual = activeTab === 'annual';
   const header = [
-    'Model year', `Baseline closing balance (${currency})`, `Overpayment closing balance (${currency})`,
-    `Overpayment plan interest (${currency})`, `Actual overpayments (${currency})`,
+    'Model year', `Baseline closing balance (${currency})`, `${annual ? 'Annual-plan' : 'Overpayment'} closing balance (${currency})`,
+    `Plan interest (${currency})`, `${annual ? 'Withdrawn to mortgage' : 'Actual overpayments'} (${currency})`,
     `Eligible overpayments (${currency})`, `Annual allowance (${currency})`, `Allowance exceeded (${currency})`,
   ];
-  const rows = result.overpaid.years.map((year, i) => [
+  if (annual) header.push(`Investments remaining (${currency})`);
+  const rows = selectedMortgagePlan().years.map((year, i) => [
     year.year, result.baseline.years[i].closing.toFixed(2), year.closing.toFixed(2),
     year.interest.toFixed(2), year.extra.toFixed(2),
     ...(year.active ? [year.countedExtra.toFixed(2), year.allowance.toFixed(2), year.excess.toFixed(2)] : ['', '', '']),
+    ...(annual ? [year.portfolio.toFixed(2)] : []),
   ]);
   const csv = [header, ...rows].map(row => row.join(',')).join('\r\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `hearth-mortgage-schedule-${currency.toLowerCase()}.csv`;
+  link.download = `hearth-${annual ? 'annual-withdrawal' : 'mortgage'}-schedule-${currency.toLowerCase()}.csv`;
   document.body.append(link);
   link.click();
   link.remove();
@@ -379,10 +466,12 @@ document.querySelectorAll('[data-tab]').forEach(button => {
   button.addEventListener('keydown', event => {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
       event.preventDefault();
-      let tab = activeTab === 'mortgage' ? 'investment' : 'mortgage';
-      if (event.key === 'Home') tab = 'mortgage';
-      if (event.key === 'End') tab = 'investment';
-      switchTab(tab, true);
+      const tabs = [...document.querySelectorAll('[data-tab]')].map(tab => tab.dataset.tab);
+      const direction = event.key === 'ArrowLeft' ? -1 : 1;
+      let index = (tabs.indexOf(activeTab) + direction + tabs.length) % tabs.length;
+      if (event.key === 'Home') index = 0;
+      if (event.key === 'End') index = tabs.length - 1;
+      switchTab(tabs[index], true);
     }
   });
 });
