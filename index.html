@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#184e3e">
+    <meta name="description" content="See what mortgage overpayments could save, track annual allowances, and compare paying down your home with investing.">
+    <title>Hearth — Mortgage overpayment calculator</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#calculator">Skip to calculator</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Hearth home">
+        <img src="/favicon.svg" width="36" height="36" alt="">
+        <span>hearth<span class="brand-dot">.</span></span>
+      </a>
+      <span class="brand-caption">A clearer path to mortgage-free.</span>
+      <span class="privacy"><span class="status-dot"></span> Your numbers stay in your browser</span>
+    </header>
+
+    <main>
+      <section class="intro">
+        <div>
+          <p class="eyebrow"><span class="little-line"></span> SMALL CHANGES. BIG POSSIBILITIES.</p>
+          <h1>Make more of your <span>money.</span></h1>
+          <p class="intro-copy">A little extra today could change your tomorrow. Explore your mortgage,<br class="desktop-break"> see what you could save, and find the right balance between overpaying and investing.</p>
+        </div>
+        <div class="intro-art" aria-hidden="true">
+          <svg viewBox="0 0 220 140" fill="none">
+            <path d="M22 117h177" stroke="#cad3c0" stroke-width="1.5"/>
+            <rect x="36" y="87" width="27" height="30" rx="4" fill="#d9e3ca"/>
+            <rect x="75" y="65" width="27" height="52" rx="4" fill="#b9cda6"/>
+            <rect x="114" y="40" width="27" height="77" rx="4" fill="#7fa58a"/>
+            <rect x="153" y="16" width="27" height="101" rx="4" fill="#235c49"/>
+            <path d="m31 66 40-20 38 1 36-32" stroke="#75916f" stroke-width="2" stroke-linecap="round"/>
+            <path d="m134 16 11-1-2 11" stroke="#75916f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="181" cy="90" r="26" fill="#f3f5e9" stroke="#c6d3bc"/>
+            <path d="m168 88 13-11 13 11v16h-9V93h-8v11h-9V88Z" stroke="#235c49" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </section>
+
+      <section id="calculator" aria-label="Mortgage calculator">
+        <div class="workspace-bar">
+          <div class="tabs" role="tablist" aria-label="Calculator view">
+            <button type="button" class="tab active" id="mortgage-tab" role="tab" aria-selected="true" aria-controls="workspace" data-tab="mortgage">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m3 9 7-6 7 6v8h-5v-6H8v6H3Z"/></svg>
+              Mortgage plan
+            </button>
+            <button type="button" class="tab" id="investment-tab" role="tab" aria-selected="false" aria-controls="workspace" tabindex="-1" data-tab="investment">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 16V4m0 12h14M6 12l4-4 3 2 4-6m-4 0h4v4"/></svg>
+              Overpay vs invest
+            </button>
+          </div>
+          <div class="workspace-actions">
+            <label class="sr-only" for="currency">Display currency</label>
+            <select id="currency" aria-label="Display currency">
+              <option value="GBP">GBP £</option>
+              <option value="USD">USD $</option>
+              <option value="EUR">EUR €</option>
+            </select>
+            <button type="button" class="text-button" id="reset"><span aria-hidden="true">↺</span> Reset</button>
+          </div>
+        </div>
+
+        <div id="form-error" class="form-error" role="alert" hidden></div>
+        <div class="workspace" id="workspace" role="tabpanel" aria-labelledby="mortgage-tab">
+          <form id="inputs" class="inputs" novalidate>
+            <div id="mortgage-inputs">
+              <section class="panel input-panel">
+                <div class="section-heading"><span class="step-number">01</span><h2>Your mortgage</h2></div>
+                <div class="field">
+                  <label for="balance">Outstanding balance</label>
+                  <div class="input-wrap"><span data-currency>£</span><input id="balance" name="balance" type="number" min="1" max="1000000000" step="0.01" inputmode="decimal" value="285000"></div>
+                </div>
+                <div class="field">
+                  <span class="field-label" id="term-label">Remaining term</span>
+                  <div class="field-grid" role="group" aria-labelledby="term-label">
+                    <div class="input-wrap"><input id="termYears" name="termYears" aria-label="Remaining term years" type="number" min="0" max="50" step="1" value="25"><span class="suffix">years</span></div>
+                    <div class="input-wrap"><input id="termExtraMonths" name="termExtraMonths" aria-label="Remaining term extra months" type="number" min="0" max="11" step="1" value="0"><span class="suffix">months</span></div>
+                  </div>
+                </div>
+                <div class="field-grid">
+                  <div class="field">
+                    <label for="fixedRate">Fixed interest rate</label>
+                    <div class="input-wrap"><input id="fixedRate" name="fixedRate" type="number" min="0" max="30" step="0.01" inputmode="decimal" value="4.25"><span class="suffix">%</span></div>
+                  </div>
+                  <div class="field">
+                    <label for="fixedMonths">Fixed-rate period</label>
+                    <div class="input-wrap"><input id="fixedMonths" name="fixedMonths" type="number" min="0" max="600" step="1" value="24"><span class="suffix">months</span></div>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="variableRate">Variable rate after fixed period</label>
+                  <div class="input-wrap"><input id="variableRate" name="variableRate" type="number" min="0" max="30" step="0.01" inputmode="decimal" value="5.5"><span class="suffix">%</span></div>
+                </div>
+                <div class="payment-note"><span>Regular monthly payment</span><strong id="regular-payment">—</strong><small id="payment-change"></small></div>
+              </section>
+
+              <section class="panel input-panel">
+                <div class="section-heading"><span class="step-number">02</span><h2>A little extra</h2><span class="optional-tag">YOUR PLAN</span></div>
+                <div class="field">
+                  <label for="monthlyExtra">Monthly overpayment</label>
+                  <div class="input-wrap"><span data-currency>£</span><input id="monthlyExtra" name="monthlyExtra" type="number" min="0" max="1000000000" step="0.01" inputmode="decimal" value="250"><span class="suffix">/ month</span></div>
+                </div>
+                <div class="field">
+                  <label for="upfrontExtra">Lump sum today</label>
+                  <div class="input-wrap"><span data-currency>£</span><input id="upfrontExtra" name="upfrontExtra" type="number" min="0" max="1000000000" step="0.01" inputmode="decimal" value="5000"></div>
+                </div>
+                <div id="mortgage-lumps" class="lump-list"></div>
+                <button class="add-button" type="button" id="add-mortgage-lump"><span aria-hidden="true">+</span> Add a future lump sum</button>
+                <p class="field-help">Future lump sums are paid at the end of the selected month.</p>
+                <details class="allowance-settings">
+                  <summary>Annual overpayment allowance <span class="summary-value" id="allowance-label">10%</span></summary>
+                  <div class="details-body">
+                    <div class="field">
+                      <label for="limitPercent">Annual allowance</label>
+                      <div class="input-wrap"><input id="limitPercent" name="limitPercent" type="number" min="0" max="100" step="0.01" value="10"><span class="suffix">%</span></div>
+                    </div>
+                    <div class="field">
+                      <label for="limitBasis">Percentage of</label>
+                      <select id="limitBasis" name="limitBasis"><option value="opening">Balance at start of each model year</option><option value="original">Today's outstanding balance (unchanged)</option></select>
+                    </div>
+                    <div class="field">
+                      <label for="limitPeriod">Allowance applies</label>
+                      <select id="limitPeriod" name="limitPeriod"><option value="fixed">During fixed-rate period only</option><option value="all">Throughout the mortgage</option><option value="none">No overpayment limit</option></select>
+                    </div>
+                    <p class="field-help">Model years are consecutive 12-month periods from today, not calendar years. Check your lender's reset date and rules.</p>
+                  </div>
+                </details>
+              </section>
+            </div>
+
+            <div id="investment-inputs" hidden>
+              <section class="panel input-panel">
+                <div class="section-heading"><span class="step-number">01</span><h2>Your investment</h2></div>
+                <p class="panel-description">What could that extra money do elsewhere?</p>
+                <div class="field">
+                  <label for="annualReturn">Expected annual growth</label>
+                  <div class="input-wrap"><input id="annualReturn" name="annualReturn" type="number" min="-99" max="50" step="0.1" inputmode="decimal" value="6"><span class="suffix">%</span></div>
+                  <p class="field-help">Effective annual return, compounded monthly. Use a rate after fees and tax. Returns can be negative.</p>
+                </div>
+                <div class="field">
+                  <label for="startingBalance">Starting investment balance</label>
+                  <div class="input-wrap"><span data-currency>£</span><input id="startingBalance" name="startingBalance" type="number" min="0" max="1000000000" step="0.01" inputmode="decimal" value="0"></div>
+                  <p class="field-help">Existing investments stay invested in both strategies.</p>
+                </div>
+                <label class="checkbox-label"><input id="fullHorizon" name="fullHorizon" type="checkbox" checked><span>Compare over the remaining mortgage term</span></label>
+                <div class="field" id="horizon-field" hidden>
+                  <label for="horizonMonths">Comparison horizon</label>
+                  <div class="input-wrap"><input id="horizonMonths" name="horizonMonths" type="number" min="1" max="600" step="1" value="300" disabled><span class="suffix">months</span></div>
+                </div>
+              </section>
+              <section class="panel input-panel">
+                <div class="section-heading"><span class="step-number">02</span><h2>Money to put to work</h2></div>
+                <label class="checkbox-label"><input id="matchContributions" name="matchContributions" type="checkbox" checked><span>Invest the same amounts as my overpayments</span></label>
+                <div id="linked-contributions" class="linked-contributions">
+                  <div><span>Every month</span><strong id="linked-monthly">—</strong></div>
+                  <div><span>Lump sum today</span><strong id="linked-upfront">—</strong></div>
+                  <div><span>Future lump sums</span><strong id="linked-lumps">—</strong></div>
+                  <button type="button" class="text-button" id="edit-overpayments">Edit in mortgage plan <span aria-hidden="true">↗</span></button>
+                </div>
+                <div id="custom-investment" hidden>
+                  <div class="field">
+                    <label for="monthlyInvestment">Monthly investment</label>
+                    <div class="input-wrap"><span data-currency>£</span><input id="monthlyInvestment" name="monthlyInvestment" type="number" min="0" max="1000000000" step="0.01" inputmode="decimal" value="250" disabled></div>
+                  </div>
+                  <div class="field">
+                    <label for="upfrontInvestment">Investment lump sum today</label>
+                    <div class="input-wrap"><span data-currency>£</span><input id="upfrontInvestment" name="upfrontInvestment" type="number" min="0" max="1000000000" step="0.01" inputmode="decimal" value="5000" disabled></div>
+                  </div>
+                  <div id="investment-lumps" class="lump-list"></div>
+                  <button class="add-button" type="button" id="add-investment-lump"><span aria-hidden="true">+</span> Add an investment lump sum</button>
+                  <p class="field-help">Different amounts or timing are not a like-for-like comparison. We'll show both projections without recommending a winner.</p>
+                </div>
+              </section>
+              <div class="sidebar-note">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7Z"/><path d="m8 12 3 3 5-6"/></svg>
+                <p><strong>A fairer comparison.</strong> When you pay off early, we invest the freed-up mortgage payment and unused overpayment budget until the comparison ends.</p>
+              </div>
+            </div>
+          </form>
+
+          <div class="results" id="results">
+            <div class="results-heading"><h2 id="results-title">Your extra payments, in perspective</h2><span class="live-label"><span class="status-dot"></span> Live estimate</span></div>
+            <div class="stat-grid" aria-live="polite" aria-atomic="true" id="stats"></div>
+            <section class="panel chart-panel" aria-labelledby="chart-title">
+              <div class="chart-heading"><div><h2 id="chart-title">The path to mortgage-free</h2><p id="chart-description">Small overpayments. A shorter journey.</p></div><span class="chart-unit" id="chart-unit">BALANCE</span></div>
+              <div class="chart-legend" id="chart-legend"></div>
+              <div id="chart" class="chart"></div>
+              <div class="chart-inspect">
+                <label for="chart-month">Explore month <output id="chart-month-label">0</output></label>
+                <input id="chart-month" type="range" min="0" max="300" value="0" step="1">
+                <div class="chart-values" id="chart-values"></div>
+              </div>
+              <div class="chart-footer" id="chart-footer"></div>
+            </section>
+
+            <section id="allowance-status" class="allowance-status" aria-label="Overpayment allowance status" aria-live="polite"></section>
+
+            <section class="decision-card" aria-labelledby="decision-title">
+              <div class="decision-icon" aria-hidden="true">↗</div>
+              <div class="decision-content">
+                <p class="eyebrow">THE BIGGER PICTURE</p>
+                <h2 id="decision-title">Overpay or invest?</h2>
+                <p id="decision-text"></p>
+                <button type="button" class="decision-link" id="compare-button">Explore the comparison <span aria-hidden="true">→</span></button>
+              </div>
+            </section>
+
+            <section id="comparison-detail" class="panel comparison-detail" hidden>
+              <h2>Like for like, not just interest vs growth</h2>
+              <p>Net position is investments minus remaining mortgage debt. Your home's value is excluded because it's the same in both strategies.</p>
+              <div class="table-scroll">
+                <table>
+                  <caption class="sr-only">Strategy comparison at the selected horizon</caption>
+                  <thead><tr><th scope="col">At your horizon</th><th scope="col">Overpay first</th><th scope="col">Invest instead</th></tr></thead>
+                  <tbody id="comparison-table"></tbody>
+                </table>
+              </div>
+              <p class="break-even" id="break-even"></p>
+            </section>
+
+            <section class="panel schedule-panel">
+              <details id="schedule">
+                <summary><span><span class="table-icon" aria-hidden="true">▤</span> The year-by-year breakdown</span><span class="details-hint">View schedule</span></summary>
+                <div class="schedule-content">
+                  <div class="schedule-toolbar"><p>Mortgage plan · amounts at each model year end</p><button class="text-button" type="button" id="download">Download CSV <span aria-hidden="true">↓</span></button></div>
+                  <div class="table-scroll">
+                    <table>
+                      <caption class="sr-only">Annual mortgage amortization and overpayment allowances</caption>
+                      <thead><tr><th scope="col">Year</th><th scope="col">No overpayments</th><th scope="col">With overpayments</th><th scope="col">Interest paid</th><th scope="col">Overpaid</th><th scope="col">Allowance used</th></tr></thead>
+                      <tbody id="schedule-body"></tbody>
+                    </table>
+                  </div>
+                  <p class="field-help">Interest paid and allowances refer to the overpayment plan. Allowances cover only eligible months; partial model years are not prorated.</p>
+                </div>
+              </details>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="assumptions">
+        <div><span class="assumption-symbol" aria-hidden="true">i</span><h2>A few things worth knowing</h2></div>
+        <p>This is a planning tool, not financial advice. Investment returns are uncertain; mortgage interest saved is based on the rates you enter. Keep an emergency fund and consider access to your money before overpaying.</p>
+        <details>
+          <summary>How the calculations work</summary>
+          <div class="assumptions-grid">
+            <p><strong>Mortgage payments.</strong> A repayment mortgage with monthly interest at the annual rate divided by 12. The variable rate stays constant after the fixed period. At that change, we recalculate the baseline payment over the remaining term and use it in both plans, so overpayments reduce the term, not the monthly payment. A lender may instead reduce your payment.</p>
+            <p><strong>Timing and allowances.</strong> Today's lump sum is paid before any interest. Monthly and future lump sums are paid at month end, after interest and the regular payment. Year 1's allowance uses the balance before today's lump sum. Limits trigger alerts; we do not cap payments or calculate early repayment charges. The fixed-period allowance is not prorated on expiry.</p>
+            <p><strong>Investment comparison.</strong> Growth compounds monthly using (1 + annual return)^(1/12) − 1. Contributions arrive at month end. Both plans retain any starting investment balance. In the overpayment plan, surplus cash and payments freed by early payoff are invested at the same return. Contributions continue to your chosen horizon, including scheduled lump sums after payoff.</p>
+            <p><strong>What isn't included.</strong> No separate taxes, investment fees, inflation, lender fees, daily interest, or repayment penalties are calculated. Enter an investment return net of tax and fees. Currency changes labels only, not exchange rates. Calculations use full precision, with displayed figures rounded; your lender's results will differ.</p>
+          </div>
+        </details>
+      </section>
+    </main>
+    <footer><span class="footer-brand">hearth.</span><span>Clarity today. Possibilities tomorrow.</span><span>No sign-up. No data leaves this page.</span></footer>
+    <noscript><p class="form-error">Enable JavaScript to use this calculator. All calculations run locally in your browser.</p></noscript>
+  </body>
+</html>

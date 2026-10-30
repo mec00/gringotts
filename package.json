@@ -1,0 +1,15 @@
+{
+  "name": "hearth-mortgage-calculator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "check": "node --check app.js && node --check model.js && node --check server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
